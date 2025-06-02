@@ -13,3 +13,14 @@
 #include <malloc.h>
 #include <memory.h>
 #include <tchar.h>
+
+
+#include <wingdi.h>
+#include <stdlib.h>
+
+#include <cmath>
+#include <iostream>
+
+
+#include <shellapi.h>
+#include <vector>
