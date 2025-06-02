@@ -35,13 +35,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
         hInst,
         nullptr
     );
+    hwnd_control_panel.push_back(create_wallpaper(hwnd, hInst));
 
     hwnd_control_panel.push_back(create_button_start(hwnd, hInst));
     hwnd_control_panel.push_back(create_button_stop(hwnd, hInst));
     hwnd_control_panel.push_back(create_cmb_animate(hwnd, hInst));
     hwnd_control_panel.push_back(create_tray_notify(hwnd, hInst)); 
 
-    hwnd_control_panel.push_back(create_wallpaper(hwnd, hInst));
+    
 
 
     ShowWindow(hwnd, SW_SHOW);

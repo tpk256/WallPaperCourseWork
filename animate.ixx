@@ -16,6 +16,9 @@ export module animate;
 #include <shellapi.h>
 #include <vector>
 
+
+#define SKY_COLOR RGB(166, 202, 240)
+
 #define WM_TRAYNOTIFY 1001
 #define WM_CLOSE_WALLPAPER 1002
 #define WM_SHOW_WALLPAPER 1003
@@ -170,6 +173,7 @@ public:
 			MoveToEx(hdc, lp->x, lp->y, NULL); // восстановление позиции
 
 		}
+        delete lp;
 
 		DeleteObject(hPen);
 	}
@@ -224,7 +228,236 @@ public:
 
 };
 
+void SpriteCloud(HDC hdc, LPCWSTR Path, int x, int y, DWORD Param)
+{
+    HBITMAP hBitmap = (HBITMAP)LoadImage(NULL, Path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+    if (!hBitmap) {
+        MessageBox(NULL, L"Не удалось загрузить BMP", L"Ошибка", MB_OK);
+        return;
+    }
 
+
+    BITMAP bmp;
+    GetObject(hBitmap, sizeof(BITMAP), &bmp);
+
+    int width = bmp.bmWidth;
+    int height = bmp.bmHeight;
+    int pitch = ((width * 3 + 3) & ~3);  
+
+    BYTE* pixels = new BYTE[pitch * height];
+
+   
+    HDC memdc = CreateCompatibleDC(hdc);
+
+    BITMAPINFO bmi = { 0 };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = -height; 
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 24;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+  
+    GetDIBits(memdc, hBitmap, 0, height, pixels, &bmi, DIB_RGB_COLORS);
+
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            BYTE* pixel = pixels + y * pitch + x * 3;
+
+            BYTE blue = pixel[0];
+            BYTE green = pixel[1];
+            BYTE red = pixel[2];
+
+            if (red == 255 && green == 255 && blue == 255)
+            {
+               
+                pixel[0] = 240;   // Blue
+                pixel[1] = 202;   // Green
+                pixel[2] = 166; // Red
+            }
+        }
+    }
+
+
+    HBITMAP newBmp = CreateDIBitmap(hdc, &bmi.bmiHeader, CBM_INIT, pixels, &bmi, DIB_RGB_COLORS);
+
+    SelectObject(memdc, newBmp);
+    BitBlt(hdc, x, y, width, height, memdc, 0, 0, SRCCOPY);
+
+
+    DeleteDC(memdc);
+    DeleteObject(hBitmap);
+    DeleteObject(newBmp);
+    delete[] pixels;
+
+
+ /*   SelectObject(memdc, bmp);
+    BitBlt(hdc, x, y, width, height, memdc, 0, 0, Param);*/
+}
+
+
+
+
+
+
+class ParticleDrop {
+    int speed;
+    int start_pos_x, start_pos_y, x, y, len;
+
+public:
+    ParticleDrop(int s_x, int s_y, int speed, int len) {
+        x = start_pos_x = s_x;
+        y = start_pos_y = s_y;
+        
+
+        this->speed = speed;
+        this->len = len;
+    }
+
+    void move(){
+        if (y > HEIGHT_WALLPAPER){
+            y = start_pos_y;
+            speed = 15 + rand() % 30;
+            len = 8 + rand() % 20;
+           
+        }
+        else
+            y += speed;
+    }
+    void draw(HDC hdc){
+        
+        MoveToEx(hdc, x, y, NULL); // выбор позиции
+
+        LineTo(hdc, x, y + len);
+
+    }
+    
+};
+class Cloud {
+    std::vector<ParticleDrop*> drops;
+    int x, y;
+public:
+    int w = 626, h = 400;
+    Cloud(int x, int y, int count_particle, HDC hdc) {
+        this->x = x;
+        this->y = y;
+        SpriteCloud(hdc, L"cloud.bmp", x, y, SRCCOPY);
+
+        int start_x = x;
+        for (int i = 0; i < count_particle; i++) {
+          
+            drops.push_back(new ParticleDrop(start_x + rand() % (w + 1), y + h, 15 + rand() % 30, 8 + rand() % 20));
+        }
+        
+    }
+
+    void draw(HDC hdc) {
+        HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 64, 107));
+        SelectObject(hdc, hPen);
+
+
+        for (auto drop : drops) {
+            drop->draw(hdc);
+            drop->move();
+        }
+        DeleteObject(hPen);
+
+
+    }
+
+
+};
+export class RainAnimation : Animation {
+ /*   std::vector<FireWork*> fw;*/
+    Wallpaper type = Wallpaper::RAIN;
+    std::vector<Cloud*> clouds;
+    HBITMAP g_Background = NULL;
+
+
+public:
+    RainAnimation(HWND hwnd, HDC hdc, int count = 3) {
+        int start_x = 300, start_y = 100;
+        g_Background = CreateCompatibleBitmap(hdc, WIDTH_WALLPAPER, HEIGHT_WALLPAPER);
+
+        HBRUSH brush = CreateSolidBrush(SKY_COLOR);  
+
+        RECT rc;
+        rc.left = 0;
+        rc.bottom = HEIGHT_WALLPAPER;
+        rc.right = WIDTH_WALLPAPER;
+        rc.top = 0;
+
+     
+
+
+        HBITMAP old = (HBITMAP)SelectObject(hdc, g_Background);
+
+
+        FillRect(hdc, &rc, brush);
+
+        
+
+        for (int i = 0; i < count; i++) {   // Добавляем тучи
+            Cloud* p = new Cloud(start_x, start_y, 40 + rand() % 100, hdc);
+            start_x += p->w + 50 + rand() % 100;
+            clouds.push_back(p);
+        }
+        DeleteObject(brush);
+        
+
+
+
+        SelectObject(hdc, old); // ВОЗВРАЩАЕМ СТАРЫЙ HBITMAP
+
+
+    }
+    void draw(HDC hdc) {
+        //Достать сохраненный фон
+        //Отрисовать капли
+
+        HDC memdc = CreateCompatibleDC(hdc);
+        HBITMAP frameBmp = CreateCompatibleBitmap(hdc, WIDTH_WALLPAPER, HEIGHT_WALLPAPER);
+        HBITMAP old = (HBITMAP)SelectObject(memdc, frameBmp);
+
+        // Восстанавливаем фон
+        HDC bgDC = CreateCompatibleDC(hdc);
+        HBITMAP oldBg = (HBITMAP)SelectObject(bgDC, g_Background);
+        BitBlt(memdc, 0, 0, WIDTH_WALLPAPER, HEIGHT_WALLPAPER, bgDC, 0, 0, SRCCOPY);
+        SelectObject(bgDC, oldBg);
+        DeleteDC(bgDC);
+
+        for (auto cloud : clouds) {
+            cloud->draw(memdc);
+        }
+        // Выводим кадр на экран
+        BitBlt(hdc, 0, 0, WIDTH_WALLPAPER, HEIGHT_WALLPAPER, memdc, 0, 0, SRCCOPY);
+       
+
+        // Очистка
+        SelectObject(memdc, old);
+        DeleteObject(frameBmp);
+        DeleteDC(memdc);
+
+       
+    }
+    ~RainAnimation() {
+        if (g_Background) {
+            DeleteObject(g_Background);
+            g_Background = NULL;
+        }
+    }
+
+
+
+    Wallpaper type_animation() {
+        return type;
+    }
+
+
+
+};
 
 /// <summary>
 /// /////
@@ -268,12 +501,24 @@ LRESULT CALLBACK WndProcManageWindow(HWND hWnd, UINT message, WPARAM wParam, LPA
                     if (ani->type_animation() == Wallpaper::FIREWORK) {
                         MessageBox(hWnd, L"Без изменений", L"Info", MB_OK);
                     }
-
+                    else {
+                        if (ani)
+                            delete ani;
+                        ani = (Animation*) new FireWorkAnimation();
+                    }
                     
                     break;
 
                 case Wallpaper::RAIN:
-                    MessageBox(hWnd, L"В разработке!", L"Info", MB_OK);
+                    if (ani->type_animation() == Wallpaper::RAIN) {
+                        MessageBox(hWnd, L"Без изменений", L"Info", MB_OK);
+                    }
+                    else {
+                        if (ani)
+                            delete ani;
+                        ani = (Animation *) new RainAnimation(hWnd, g_hMemDC);
+                    }
+                  
                     break;
 
                 case Wallpaper::SHIT:
@@ -562,19 +807,27 @@ LRESULT CALLBACK WndProcWALL(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
+        if (ani->type_animation() == Wallpaper::FIREWORK) {
+            RECT rc;
+            GetClientRect(hWnd, &rc);
+            HBRUSH brush = CreateSolidBrush(RGB(10, 10, 50));   //по дефолту для фейрверка
+            
+            FillRect(g_hMemDC, &rc, brush);
 
+            DeleteObject(brush);
 
-        RECT rc;
-        GetClientRect(hWnd, &rc);
+            ani->draw(g_hMemDC);
 
-        HBRUSH brush = CreateSolidBrush(RGB(10, 10, 50));
+            BitBlt(hdc, 0, 0, WIDTH_WALLPAPER, HEIGHT_WALLPAPER, g_hMemDC, 0, 0, SRCCOPY);
+            
+        }
+        else if (ani->type_animation() == Wallpaper::RAIN) {
 
-        FillRect(g_hMemDC, &rc, brush);
-        DeleteObject(brush);
+            ani->draw(g_hMemDC);
 
-        ani->draw(g_hMemDC);
+            BitBlt(hdc, 0, 0, WIDTH_WALLPAPER, HEIGHT_WALLPAPER, g_hMemDC, 0, 0, SRCCOPY);
+        }
 
-        BitBlt(hdc, 0, 0, WIDTH_WALLPAPER, HEIGHT_WALLPAPER, g_hMemDC, 0, 0, SRCCOPY);
         EndPaint(hWnd, &ps);
         return 0;
     }

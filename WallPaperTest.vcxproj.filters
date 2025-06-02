@@ -48,5 +48,11 @@
     <Image Include="WallPaperTest.ico">
       <Filter>Файлы ресурсов</Filter>
     </Image>
+    <Image Include="cloud.png">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
+    <Image Include="cloud.bmp">
+      <Filter>Файлы ресурсов</Filter>
+    </Image>
   </ItemGroup>
 </Project>

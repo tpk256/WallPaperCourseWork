@@ -145,6 +145,10 @@
     <ResourceCompile Include="WallPaperTest.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="cloud.bmp">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+    <Image Include="cloud.png" />
     <Image Include="small.ico" />
     <Image Include="WallPaperTest.ico" />
   </ItemGroup>
